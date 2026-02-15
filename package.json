@@ -1,0 +1,15 @@
+{
+  "name": "test-chunks-videos-cloudinary",
+  "version": "1.0.0",
+  "main": "upload.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cloudinary": "^2.9.0",
+    "dotenv": "^17.3.1"
+  }
+}
