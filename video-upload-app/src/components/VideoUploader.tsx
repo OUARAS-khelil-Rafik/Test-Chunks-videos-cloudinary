@@ -40,6 +40,10 @@ export function VideoUploader() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [folders, setFolders] = useState<string[]>([]);
+  const [folderMode, setFolderMode] = useState<'existing' | 'new'>('existing');
+  const [selectedFolder, setSelectedFolder] = useState('video-platform');
+  const [newFolderName, setNewFolderName] = useState('');
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
     if (rejectedFiles.length > 0) {
@@ -75,6 +79,25 @@ export function VideoUploader() {
     multiple: false,
   });
 
+  useEffect(() => {
+    let mounted = true;
+    const fetchFolders = async () => {
+      try {
+        const res = await axios.get('/api/videos/folders');
+        if (!mounted) return;
+        if (res.data?.folders && Array.isArray(res.data.folders)) {
+          setFolders(res.data.folders);
+          if (res.data.folders.length > 0) setSelectedFolder((prev) => prev || res.data.folders[0]);
+        }
+      } catch (e) {
+        // ignore; folder list is optional
+      }
+    };
+
+    if (status !== 'loading' && session) fetchFolders();
+    return () => { mounted = false; };
+  }, [session, status]);
+
   const removeFile = () => {
     setState({
       file: null,
@@ -94,6 +117,11 @@ export function VideoUploader() {
       return;
     }
 
+    if (folderMode === 'new' && !newFolderName.trim()) {
+      setState((prev) => ({ ...prev, error: 'Please provide a folder name' }));
+      return;
+    }
+
 
     // cloudName is now collected at signup and stored server-side; uploader no longer asks for it
 
@@ -105,6 +133,8 @@ export function VideoUploader() {
       formData.append('file', state.file);
       formData.append('title', title.trim());
       formData.append('description', description.trim());
+      const folderToSend = folderMode === 'existing' ? selectedFolder : newFolderName.trim();
+      formData.append('folder', folderToSend);
       // cloudName is derived from the authenticated user's profile on the server
 
       const { data: videoData } = await axios.post('/api/videos/upload', formData, {
@@ -263,6 +293,45 @@ export function VideoUploader() {
                   className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all disabled:opacity-50 resize-none"
                   placeholder="Enter video description (optional)"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Folder</label>
+                <div className="flex items-center space-x-3 mb-2">
+                  <label className={`px-3 py-1 rounded-lg cursor-pointer ${folderMode === 'existing' ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                    <input type="radio" name="folderMode" checked={folderMode === 'existing'} onChange={() => setFolderMode('existing')} className="mr-2" />
+                    Choose existing
+                  </label>
+                  <label className={`px-3 py-1 rounded-lg cursor-pointer ${folderMode === 'new' ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                    <input type="radio" name="folderMode" checked={folderMode === 'new'} onChange={() => setFolderMode('new')} className="mr-2" />
+                    Create new
+                  </label>
+                </div>
+
+                {folderMode === 'existing' && (
+                  <select
+                    value={selectedFolder}
+                    onChange={(e) => setSelectedFolder(e.target.value)}
+                    disabled={state.uploading}
+                    className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="video-platform">video-platform</option>
+                    {folders.map((f) => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                )}
+
+                {folderMode === 'new' && (
+                  <input
+                    type="text"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    disabled={state.uploading}
+                    placeholder="Enter new folder name"
+                    className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                )}
               </div>
             </div>
 

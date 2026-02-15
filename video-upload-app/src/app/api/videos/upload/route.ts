@@ -118,18 +118,19 @@ function uploadLargePromise(filePath: string, options: Record<string, any>): Pro
   });
 }
 
-async function uploadWithRetry(filePath: string, publicId: string) {
+async function uploadWithRetry(filePath: string, publicId: string, folderArg?: string) {
+  const folderToUse = (folderArg && String(folderArg).trim()) || UPLOAD_FOLDER;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     try {
       const result = await uploadLargePromise(filePath, {
         resource_type: 'video',
-        folder: UPLOAD_FOLDER,
+        folder: folderToUse,
         public_id: publicId,
         chunk_size: 6 * 1024 * 1024,
         timeout: 600000,
         overwrite: false,
       });
-      return { result, publicId: result.public_id || `${UPLOAD_FOLDER}/${publicId}` };
+      return { result, publicId: result.public_id || `${folderToUse}/${publicId}` };
     } catch (error: any) {
       if (attempt < MAX_RETRIES && isRetryable(error)) {
         continue;
@@ -265,6 +266,7 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file');
     const title = String(formData.get('title') || '').trim();
     const description = String(formData.get('description') || '').trim();
+    const requestedFolder = String(formData.get('folder') || '').trim() || UPLOAD_FOLDER;
 
     if (!title) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
@@ -293,7 +295,7 @@ export async function POST(req: NextRequest) {
     let isMultipart = false;
 
     if (fileSize <= CLOUDINARY_LIMIT) {
-      const uploadResult = await uploadWithRetry(inputFilePath, basePublicId);
+      const uploadResult = await uploadWithRetry(inputFilePath, basePublicId, requestedFolder);
       partsResults = [{ ...uploadResult, filePath: inputFilePath }];
     } else {
       isMultipart = true;
@@ -306,7 +308,7 @@ export async function POST(req: NextRequest) {
       for (let i = 0; i < parts.length; i += 1) {
         const partPublicId = `${basePublicId}-part-${String(i + 1).padStart(3, '0')}`;
         uploads.push(
-          uploadWithRetry(parts[i], partPublicId).then((result) => ({
+          uploadWithRetry(parts[i], partPublicId, requestedFolder).then((result) => ({
             ...result,
             filePath: parts[i],
           }))
