@@ -1,6 +1,20 @@
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import connectDB from '@/lib/db';
+import User from '@/models/User';
+import { redirect } from 'next/navigation';
 import { VideoUploader } from '@/components/VideoUploader';
 
-export default function UploadPage() {
+export default async function UploadPage() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    redirect('/auth/signin?callbackUrl=/upload');
+  }
+
+  await connectDB();
+  const user = await User.findById(session.user.id).lean();
+  const cloudName = user?.cloudName || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
+
   return (
     <div className="py-8">
       <div className="mb-8 text-center">
@@ -9,7 +23,7 @@ export default function UploadPage() {
           Upload your video and share it with the world
         </p>
       </div>
-      <VideoUploader />
+      <VideoUploader cloudName={cloudName} initialCloudName={cloudName} />
     </div>
   );
 }

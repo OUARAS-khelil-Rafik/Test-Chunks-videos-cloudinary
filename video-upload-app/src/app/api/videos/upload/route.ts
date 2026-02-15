@@ -3,7 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import connectDB from '@/lib/db';
 import Video from '@/models/Video';
-import cloudinary from '@/lib/cloudinary';
+import User from '@/models/User';
+import cloudinary, { applyCloudinaryConfig } from '@/lib/cloudinary';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
@@ -22,6 +23,11 @@ const MAX_PARTS = 20;
 const MAX_RETRIES = 3;
 const UPLOAD_FOLDER = 'video-platform';
 
+// runtime-configurable cloud name (defaults to env var)
+let CURRENT_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
+export function setCurrentCloudName(name: string) {
+  CURRENT_CLOUD_NAME = name || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
+}
 const sanitizeBaseName = (name: string) =>
   name
     .replace(/\.[^/.]+$/, '')
@@ -173,7 +179,7 @@ async function probeVideo(filePath: string) {
 }
 
 function buildSecureUrl(publicId: string, format: string) {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const cloudName = CURRENT_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
   return `https://res.cloudinary.com/${cloudName}/video/upload/${publicId}.${format}`;
 }
 
@@ -222,6 +228,40 @@ export async function POST(req: NextRequest) {
   let tempDir = '';
   try {
     const formData = await req.formData();
+    const cloudNameFromClient = String(formData.get('cloudName') || '').trim();
+
+    // Use server env API key/secret; prefer user's saved non-secret cloudName or client-provided cloudName
+    await connectDB();
+    const user = await User.findById(session.user.id).select('+cloudName +cloudinaryApiKeyEncrypted +cloudinaryApiSecretEncrypted');
+    const effectiveCloudName = cloudNameFromClient || user?.cloudName || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
+    if (effectiveCloudName) setCurrentCloudName(effectiveCloudName);
+    // Ensure Cloudinary credentials exist either in server env or user's encrypted profile
+    const hasServerKeys = !!process.env.CLOUDINARY_API_KEY && !!process.env.CLOUDINARY_API_SECRET;
+    const hasUserKeysEncrypted = !!user?.cloudinaryApiKeyEncrypted && !!user?.cloudinaryApiSecretEncrypted;
+    if (!hasServerKeys && !hasUserKeysEncrypted) {
+      return NextResponse.json({ error: 'Cloudinary credentials are not configured. Please add them in your profile or set server env variables.' }, { status: 400 });
+    }
+
+    // Apply per-request Cloudinary configuration: prefer user-provided encrypted keys, otherwise server env keys.
+    if (hasUserKeysEncrypted) {
+      const { decryptSecret } = await import('@/lib/crypto');
+      try {
+        const apiKey = decryptSecret(user.cloudinaryApiKeyEncrypted as string);
+        const apiSecret = decryptSecret(user.cloudinaryApiSecretEncrypted as string);
+        applyCloudinaryConfig({ cloud_name: effectiveCloudName || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME, api_key: apiKey, api_secret: apiSecret });
+      } catch (e) {
+        console.error('Failed to decrypt Cloudinary credentials for user:', e);
+        return NextResponse.json({ error: 'Failed to decrypt Cloudinary credentials. Please update your profile.' }, { status: 500 });
+      }
+    } else {
+      // Use server env keys but ensure cloud name is set per-request
+      applyCloudinaryConfig({ cloud_name: effectiveCloudName || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME, api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_API_SECRET });
+    }
+
+    // If we still don't have cloud name, return error
+    if (!effectiveCloudName) {
+      return NextResponse.json({ error: 'Cloudinary cloud name is required.' }, { status: 400 });
+    }
     const file = formData.get('file');
     const title = String(formData.get('title') || '').trim();
     const description = String(formData.get('description') || '').trim();
@@ -285,7 +325,7 @@ export async function POST(req: NextRequest) {
     const totalSize = partsMetadata.reduce((sum, part) => sum + (part.fileSize || 0), 0);
     const primary = partsMetadata[0];
 
-    await connectDB();
+    // connectDB already called above when loading user
 
     const video = await Video.create({
       userId: session.user.id,

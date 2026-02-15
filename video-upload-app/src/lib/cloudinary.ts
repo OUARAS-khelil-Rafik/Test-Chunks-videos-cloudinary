@@ -1,12 +1,15 @@
 import { v2 as cloudinary } from 'cloudinary';
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true,
-});
+// Helper to apply a per-request Cloudinary config (cloud_name, api_key, api_secret)
+export function applyCloudinaryConfig(override?: { cloud_name?: string; api_key?: string; api_secret?: string }) {
+  if (!override) return;
+  cloudinary.config({
+    cloud_name: override.cloud_name || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+    api_key: override.api_key || process.env.CLOUDINARY_API_KEY,
+    api_secret: override.api_secret || process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  });
+}
 
 /**
  * Generate signed upload parameters for Cloudinary
@@ -37,8 +40,9 @@ export const generateSignedUploadParams = () => {
 /**
  * Get video metadata from Cloudinary
  */
-export const getVideoMetadata = async (publicId: string) => {
+export const getVideoMetadata = async (publicId: string, overrideConfig?: { cloud_name?: string; api_key?: string; api_secret?: string }) => {
   try {
+    if (overrideConfig) applyCloudinaryConfig(overrideConfig);
     const result = await cloudinary.api.resource(publicId, {
       resource_type: 'video',
     });

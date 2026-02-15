@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession, signIn } from 'next-auth/react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, X, CheckCircle, AlertCircle, Film } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,7 +26,33 @@ interface UploadState {
   videoData: any | null;
 }
 
-export function VideoUploader() {
+export function VideoUploader({ cloudName, initialCloudName }: { cloudName: string; initialCloudName?: string }) {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  if (status === 'loading') {
+    return (
+      <div className="text-center py-20">Checking authentication...</div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="max-w-md mx-auto space-y-4 p-6 glass rounded-2xl text-center">
+        <h2 className="text-xl font-semibold">Sign in to upload videos</h2>
+        <p className="text-sm text-gray-500">You must be signed in to upload videos. Please sign in or create an account.</p>
+        <div className="flex items-center justify-center space-x-3">
+          <button
+            onClick={() => signIn()}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
+          >
+            Sign In
+          </button>
+          <a href="/auth/signup" className="px-4 py-2 border rounded-lg hover:bg-gray-100">Sign Up</a>
+        </div>
+      </div>
+    );
+  }
   const [state, setState] = useState<UploadState>({
     file: null,
     uploading: false,
@@ -36,6 +64,7 @@ export function VideoUploader() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [cloudNameInput, setCloudNameInput] = useState((initialCloudName || cloudName || '').trim());
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
     if (rejectedFiles.length > 0) {
@@ -90,13 +119,21 @@ export function VideoUploader() {
       return;
     }
 
+
+    if (!cloudNameInput.trim()) {
+      setState((prev) => ({ ...prev, error: 'Please enter your Cloudinary cloud name.' }));
+      return;
+    }
+
     setState((prev) => ({ ...prev, uploading: true, progress: 0, error: null }));
 
     try {
+
       const formData = new FormData();
       formData.append('file', state.file);
       formData.append('title', title.trim());
       formData.append('description', description.trim());
+      formData.append('cloudName', cloudNameInput.trim());
 
       const { data: videoData } = await axios.post('/api/videos/upload', formData, {
         onUploadProgress: (progressEvent) => {
@@ -115,9 +152,9 @@ export function VideoUploader() {
         progress: 100,
       }));
 
-      // Reset form after 3 seconds
+      // Auto-redirect to video detail after a short delay
       setTimeout(() => {
-        removeFile();
+        if (videoData?._id) router.push(`/videos/${videoData._id}`);
       }, 3000);
     } catch (error: any) {
       console.error('Upload error:', error);
@@ -219,6 +256,17 @@ export function VideoUploader() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium mb-2">Cloudinary Cloud Name <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={cloudNameInput}
+                  onChange={(e) => setCloudNameInput(e.target.value)}
+                  disabled={state.uploading}
+                  className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all disabled:opacity-50"
+                  placeholder="your-cloud-name"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-2">
                   Description
                 </label>
@@ -294,6 +342,16 @@ export function VideoUploader() {
             <div>
               <h3 className="text-2xl font-bold">Upload Successful!</h3>
               <p className="text-gray-500 mt-2">Your video has been uploaded and saved.</p>
+              {state.videoData?._id && (
+                <div className="mt-4">
+                  <a
+                    href={`/videos/${state.videoData._id}`}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg"
+                  >
+                    View Video
+                  </a>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

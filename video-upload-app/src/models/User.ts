@@ -5,7 +5,10 @@ export interface IUser extends Document {
   name: string;
   email: string;
   password: string;
-  createdAt: Date;
+  cloudName?: string;
+  cloudinaryApiKeyEncrypted?: string;
+  cloudinaryApiSecretEncrypted?: string;
+  createdAt?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -28,6 +31,18 @@ const UserSchema = new Schema<IUser>({
     minlength: 6,
     select: false,
   },
+  cloudName: {
+    type: String,
+    trim: true,
+  },
+  cloudinaryApiKeyEncrypted: {
+    type: String,
+    select: false,
+  },
+  cloudinaryApiSecretEncrypted: {
+    type: String,
+    select: false,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -35,7 +50,8 @@ const UserSchema = new Schema<IUser>({
 });
 
 // Hash password before saving
-UserSchema.pre('save', async function (next) {
+UserSchema.pre('save', async function (next: any) {
+  // `this` can be a mongoose document; use any to avoid overly strict typings here
   if (!this.isModified('password')) return next();
   
   const salt = await bcrypt.genSalt(10);

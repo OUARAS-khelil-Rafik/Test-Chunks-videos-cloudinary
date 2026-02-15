@@ -15,6 +15,9 @@ export default function SignUpPage() {
     password: '',
     confirmPassword: '',
   });
+
+  // Collect Cloudinary secrets (will be encrypted server-side)
+  const [cloudData, setCloudData] = useState({ apiKey: '', apiSecret: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -40,6 +43,8 @@ export default function SignUpPage() {
         name: formData.name,
         email: formData.email,
         password: formData.password,
+        cloudinaryApiKey: cloudData.apiKey,
+        cloudinaryApiSecret: cloudData.apiSecret,
       });
 
       // Redirect to sign in
@@ -109,7 +114,33 @@ export default function SignUpPage() {
                   required
                 />
               </div>
+
+              {/* Cloudinary API Key */}
+              <div>
+                <label className="block text-sm font-medium mb-2">CLOUDINARY_API_KEY (optional)</label>
+                <input
+                  type="text"
+                  value={cloudData.apiKey}
+                  onChange={(e) => setCloudData({ ...cloudData, apiKey: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="Cloudinary API Key"
+                />
+              </div>
+
+              {/* Cloudinary API Secret */}
+              <div>
+                <label className="block text-sm font-medium mb-2">CLOUDINARY_API_SECRET (optional)</label>
+                <input
+                  type="password"
+                  value={cloudData.apiSecret}
+                  onChange={(e) => setCloudData({ ...cloudData, apiSecret: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="Cloudinary API Secret"
+                />
+              </div>
             </div>
+
+              {/* Note: Cloudinary keys are optional and collected above if provided */}
 
             {/* Password */}
             <div>

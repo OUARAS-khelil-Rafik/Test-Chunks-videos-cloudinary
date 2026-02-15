@@ -1,7 +1,11 @@
 import Link from 'next/link';
 import { Play, Upload, Video, Shield, Zap, Cloud } from 'lucide-react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession(authOptions);
+  const isSignedIn = !!session?.user?.id;
   const features = [
     {
       icon: Shield,
@@ -87,7 +91,7 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-              100GB
+              25GB
             </div>
             <div className="text-gray-600 dark:text-gray-400">Free Storage</div>
           </div>
@@ -106,19 +110,21 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="text-center space-y-6">
-        <h2 className="text-3xl font-bold">Ready to get started?</h2>
-        <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
-          Join thousands of creators who trust our platform for their video hosting needs.
-        </p>
-        <Link
-          href="/auth/signup"
-          className="inline-block px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg font-semibold text-lg shadow-lg hover:shadow-xl transition-all"
-        >
-          Create Free Account
-        </Link>
-      </section>
+      {/* CTA Section - hidden when signed in */}
+      {!isSignedIn && (
+        <section className="text-center space-y-6">
+          <h2 className="text-3xl font-bold">Ready to get started?</h2>
+          <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
+            Join thousands of creators who trust our platform for their video hosting needs.
+          </p>
+          <Link
+            href="/auth/signup"
+            className="inline-block px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg font-semibold text-lg shadow-lg hover:shadow-xl transition-all"
+          >
+            Create Free Account
+          </Link>
+        </section>
+      )}
     </div>
   );
 }
