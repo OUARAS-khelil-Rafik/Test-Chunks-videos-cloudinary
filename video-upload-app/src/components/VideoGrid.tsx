@@ -51,11 +51,22 @@ export function VideoGrid() {
     if (!confirm('Are you sure you want to delete this video?')) return;
 
     try {
-      await axios.delete(`/api/videos/${id}`);
-      fetchVideos(pagination.page);
+      const res = await axios.delete(`/api/videos/${id}`);
+      const data = res.data;
+      if (res.status >= 200 && res.status < 300) {
+        // successful deletion — remove locally for snappy UX
+        setVideos(videos.filter((v: any) => v._id !== id));
+      } else {
+        alert(data?.error || 'Failed to delete video');
+      }
     } catch (error: any) {
       console.error('Delete error:', error);
-      alert(error.response?.data?.error || 'Failed to delete video');
+      const errData = error.response?.data;
+      if (errData?.failedIds) {
+        alert('Cloudinary deletion failed for some parts. Please retry from the video detail page.');
+      } else {
+        alert(errData?.error || 'Failed to delete video');
+      }
     }
   };
 

@@ -14,6 +14,7 @@ export default function SignUpPage() {
     email: '',
     password: '',
     confirmPassword: '',
+    cloudName: '',
   });
 
   // Collect Cloudinary secrets (will be encrypted server-side)
@@ -45,6 +46,7 @@ export default function SignUpPage() {
         password: formData.password,
         cloudinaryApiKey: cloudData.apiKey,
         cloudinaryApiSecret: cloudData.apiSecret,
+        cloudName: formData.cloudName?.trim(),
       });
 
       // Redirect to sign in
@@ -136,6 +138,17 @@ export default function SignUpPage() {
                   onChange={(e) => setCloudData({ ...cloudData, apiSecret: e.target.value })}
                   className="w-full px-4 py-3 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="Cloudinary API Secret"
+                />
+              </div>
+              {/* Cloudinary Cloud Name */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Cloudinary Cloud Name (optional)</label>
+                <input
+                  type="text"
+                  value={formData.cloudName}
+                  onChange={(e) => setFormData({ ...formData, cloudName: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="your-cloud-name"
                 />
               </div>
             </div>

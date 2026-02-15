@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { Moon, Sun, Video, LogOut, Upload, Grid } from 'lucide-react';
+import { Moon, Sun, Video, LogOut, Upload, Grid, Settings } from 'lucide-react';
 import { useThemeStore } from '@/store';
 import { motion } from 'framer-motion';
 
@@ -44,6 +44,13 @@ export function Navbar() {
               >
                 <Grid className="w-4 h-4" />
                 <span className="hidden sm:inline">Videos</span>
+              </Link>
+              <Link 
+                href="/settings"
+                className="px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="hidden sm:inline">Settings</span>
               </Link>
             </div>
           )}

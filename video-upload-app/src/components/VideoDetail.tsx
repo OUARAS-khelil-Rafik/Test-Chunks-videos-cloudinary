@@ -89,10 +89,23 @@ export function VideoDetail() {
     if (!confirm('Are you sure you want to delete this video?')) return;
 
     try {
-      await axios.delete(`/api/videos/${params.id}`);
-      router.push('/videos');
+      const partsToDelete = (video?.parts || []).map((p) => p.publicId).filter(Boolean);
+      // include primary id as well to be safe
+      if (video?.publicId) partsToDelete.unshift(video.publicId);
+      const res = await axios.delete(`/api/videos/${params.id}`, { data: { parts: partsToDelete } });
+      if (res.status >= 200 && res.status < 300) {
+        router.push('/videos');
+      } else {
+        const data = res.data;
+        alert(data?.error || 'Failed to delete video');
+      }
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to delete video');
+      const errData = error.response?.data;
+      if (errData?.failedIds) {
+        alert('Cloudinary deletion failed for some parts: ' + errData.failedIds.join(', '));
+      } else {
+        alert(errData?.error || 'Failed to delete video');
+      }
     }
   };
 

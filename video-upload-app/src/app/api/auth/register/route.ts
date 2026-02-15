@@ -4,7 +4,7 @@ import User from '@/models/User';
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password, cloudinaryApiKey, cloudinaryApiSecret } = await req.json();
+    const { name, email, password, cloudinaryApiKey, cloudinaryApiSecret, cloudName } = await req.json();
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
 
     // Create new user
     const userPayload: any = { name, email, password };
+    if (cloudName) userPayload.cloudName = cloudName;
     // encrypt any provided Cloudinary keys
     if (cloudinaryApiKey) {
       const { encryptSecret } = await import('@/lib/crypto');

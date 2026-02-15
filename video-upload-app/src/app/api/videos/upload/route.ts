@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import authOptions from '@/lib/authOptions';
 import connectDB from '@/lib/db';
 import Video from '@/models/Video';
 import User from '@/models/User';
-import cloudinary, { applyCloudinaryConfig } from '@/lib/cloudinary';
+import cloudinary, { applyCloudinaryConfig, setCurrentCloudName } from '@/lib/cloudinary';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
@@ -23,11 +23,7 @@ const MAX_PARTS = 20;
 const MAX_RETRIES = 3;
 const UPLOAD_FOLDER = 'video-platform';
 
-// runtime-configurable cloud name (defaults to env var)
-let CURRENT_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
-export function setCurrentCloudName(name: string) {
-  CURRENT_CLOUD_NAME = name || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
-}
+// cloud name is managed in lib/cloudinary
 const sanitizeBaseName = (name: string) =>
   name
     .replace(/\.[^/.]+$/, '')
@@ -179,8 +175,12 @@ async function probeVideo(filePath: string) {
 }
 
 function buildSecureUrl(publicId: string, format: string) {
-  const cloudName = CURRENT_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
-  return `https://res.cloudinary.com/${cloudName}/video/upload/${publicId}.${format}`;
+  try {
+    return cloudinary.url(publicId, { resource_type: 'video', format });
+  } catch (e) {
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
+    return `https://res.cloudinary.com/${cloudName}/video/upload/${publicId}.${format}`;
+  }
 }
 
 async function buildPartMetadataFromUpload(result: any, publicId: string, filePath: string) {
@@ -316,11 +316,15 @@ export async function POST(req: NextRequest) {
       partsResults = await Promise.all(uploads);
     }
 
-    const partsMetadata = await Promise.all(
+    let partsMetadata = await Promise.all(
       partsResults.map(({ result, publicId, filePath }) =>
         buildPartMetadataFromUpload(result, publicId, filePath)
       )
     );
+
+    // Attach cloudName to each part metadata so deletions and other operations
+    // can reference which Cloudinary cloud the part belongs to.
+    partsMetadata = partsMetadata.map((p) => ({ ...p, cloudName: effectiveCloudName }));
     const totalDuration = partsMetadata.reduce((sum, part) => sum + (part.duration || 0), 0);
     const totalSize = partsMetadata.reduce((sum, part) => sum + (part.fileSize || 0), 0);
     const primary = partsMetadata[0];
@@ -334,6 +338,7 @@ export async function POST(req: NextRequest) {
       publicId: primary.publicId,
       secureUrl: primary.secureUrl,
       format: primary.format,
+      cloudName: effectiveCloudName,
       duration: totalDuration,
       width: primary.width,
       height: primary.height,

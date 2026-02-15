@@ -26,33 +26,9 @@ interface UploadState {
   videoData: any | null;
 }
 
-export function VideoUploader({ cloudName, initialCloudName }: { cloudName: string; initialCloudName?: string }) {
+export function VideoUploader() {
   const { data: session, status } = useSession();
   const router = useRouter();
-
-  if (status === 'loading') {
-    return (
-      <div className="text-center py-20">Checking authentication...</div>
-    );
-  }
-
-  if (!session) {
-    return (
-      <div className="max-w-md mx-auto space-y-4 p-6 glass rounded-2xl text-center">
-        <h2 className="text-xl font-semibold">Sign in to upload videos</h2>
-        <p className="text-sm text-gray-500">You must be signed in to upload videos. Please sign in or create an account.</p>
-        <div className="flex items-center justify-center space-x-3">
-          <button
-            onClick={() => signIn()}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
-          >
-            Sign In
-          </button>
-          <a href="/auth/signup" className="px-4 py-2 border rounded-lg hover:bg-gray-100">Sign Up</a>
-        </div>
-      </div>
-    );
-  }
   const [state, setState] = useState<UploadState>({
     file: null,
     uploading: false,
@@ -64,7 +40,6 @@ export function VideoUploader({ cloudName, initialCloudName }: { cloudName: stri
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [cloudNameInput, setCloudNameInput] = useState((initialCloudName || cloudName || '').trim());
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
     if (rejectedFiles.length > 0) {
@@ -120,10 +95,7 @@ export function VideoUploader({ cloudName, initialCloudName }: { cloudName: stri
     }
 
 
-    if (!cloudNameInput.trim()) {
-      setState((prev) => ({ ...prev, error: 'Please enter your Cloudinary cloud name.' }));
-      return;
-    }
+    // cloudName is now collected at signup and stored server-side; uploader no longer asks for it
 
     setState((prev) => ({ ...prev, uploading: true, progress: 0, error: null }));
 
@@ -133,7 +105,7 @@ export function VideoUploader({ cloudName, initialCloudName }: { cloudName: stri
       formData.append('file', state.file);
       formData.append('title', title.trim());
       formData.append('description', description.trim());
-      formData.append('cloudName', cloudNameInput.trim());
+      // cloudName is derived from the authenticated user's profile on the server
 
       const { data: videoData } = await axios.post('/api/videos/upload', formData, {
         onUploadProgress: (progressEvent) => {
@@ -173,6 +145,29 @@ export function VideoUploader({ cloudName, initialCloudName }: { cloudName: stri
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
+  if (status === 'loading') {
+    return (
+      <div className="text-center py-20">Checking authentication...</div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="max-w-md mx-auto space-y-4 p-6 glass rounded-2xl text-center">
+        <h2 className="text-xl font-semibold">Sign in to upload videos</h2>
+        <p className="text-sm text-gray-500">You must be signed in to upload videos. Please sign in or create an account.</p>
+        <div className="flex items-center justify-center space-x-3">
+          <button
+            onClick={() => signIn()}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
+          >
+            Sign In
+          </button>
+          <a href="/auth/signup" className="px-4 py-2 border rounded-lg hover:bg-gray-100">Sign Up</a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
@@ -255,17 +250,7 @@ export function VideoUploader({ cloudName, initialCloudName }: { cloudName: stri
                   placeholder="Enter video title"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Cloudinary Cloud Name <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  value={cloudNameInput}
-                  onChange={(e) => setCloudNameInput(e.target.value)}
-                  disabled={state.uploading}
-                  className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all disabled:opacity-50"
-                  placeholder="your-cloud-name"
-                />
-              </div>
+              {/* Cloudinary Cloud Name removed from uploader; collected at signup */}
               <div>
                 <label className="block text-sm font-medium mb-2">
                   Description
@@ -281,20 +266,10 @@ export function VideoUploader({ cloudName, initialCloudName }: { cloudName: stri
               </div>
             </div>
 
-            {/* Progress Bar */}
+            {/* Uploading state: simple messaging (no numeric progress bar) */}
             {state.uploading && (
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Uploading...</span>
-                  <span>{state.progress}%</span>
-                </div>
-                <div className="w-full h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${state.progress}%` }}
-                    className="h-full gradient-primary"
-                  />
-                </div>
+                <div className="text-sm text-gray-200">{/* empty placeholder to keep spacing consistent */}</div>
               </div>
             )}
 
@@ -307,23 +282,21 @@ export function VideoUploader({ cloudName, initialCloudName }: { cloudName: stri
             )}
 
             {/* Upload Button */}
-            <button
-              onClick={uploadVideo}
-              disabled={state.uploading || !title.trim()}
-              className="w-full py-3 rounded-lg gradient-primary text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-            >
-              {state.uploading ? (
-                <>
-                  <div className="spinner" />
-                  <span>Uploading...</span>
-                </>
-              ) : (
-                <>
-                  <Upload className="w-5 h-5" />
-                  <span>Upload Video</span>
-                </>
+            <div>
+              <button
+                onClick={uploadVideo}
+                disabled={state.uploading || !title.trim()}
+                className="w-full py-3 rounded-lg gradient-primary text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                <span>{state.uploading ? 'Please Be patient' : 'Upload Video'}</span>
+              </button>
+
+              {state.uploading && (
+                <div className="mt-3 text-sm text-gray-500">
+                  It may take a few minutes to upload depending on your file size. Please make sure your internet connection is stable and avoid closing the tab until the upload completes.
+                </div>
               )}
-            </button>
+            </div>
           </motion.div>
         )}
 

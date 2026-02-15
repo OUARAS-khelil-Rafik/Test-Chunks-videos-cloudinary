@@ -1,5 +1,21 @@
 import { v2 as cloudinary } from 'cloudinary';
 
+// runtime-configurable cloud name (defaults to env var)
+let CURRENT_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
+
+export function setCurrentCloudName(name?: string) {
+  CURRENT_CLOUD_NAME = (name || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '').trim();
+  try {
+    cloudinary.config({ cloud_name: CURRENT_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME, secure: true });
+  } catch (e) {
+    // ignore
+  }
+}
+
+export function getCurrentCloudName() {
+  return CURRENT_CLOUD_NAME;
+}
+
 // Helper to apply a per-request Cloudinary config (cloud_name, api_key, api_secret)
 export function applyCloudinaryConfig(override?: { cloud_name?: string; api_key?: string; api_secret?: string }) {
   if (!override) return;
@@ -106,6 +122,28 @@ export const deleteVideo = async (publicId: string) => {
   } catch (error) {
     console.error('Error deleting video:', error);
     throw new Error('Failed to delete video');
+  }
+};
+
+/** Delete multiple resources by public IDs */
+export const deleteResources = async (publicIds: string[]) => {
+  try {
+    const result = await cloudinary.api.delete_resources(publicIds, { resource_type: 'video', type: 'upload' });
+    return result;
+  } catch (error) {
+    console.error('Error deleting resources:', error);
+    throw new Error('Failed to delete resources');
+  }
+};
+
+/** Delete resources by prefix (deletes all resources with public_id starting with prefix) */
+export const deleteResourcesByPrefix = async (prefix: string) => {
+  try {
+    const result = await cloudinary.api.delete_resources_by_prefix(prefix, { resource_type: 'video', type: 'upload' });
+    return result;
+  } catch (error) {
+    console.error('Error deleting resources by prefix:', error);
+    throw new Error('Failed to delete resources by prefix');
   }
 };
 

@@ -11,6 +11,7 @@ export interface IVideo extends Document {
   width: number;
   height: number;
   aspectRatio: string;
+  cloudName?: string;
   bitRate?: number;
   frameRate?: number;
   videoCodec?: string;
@@ -81,6 +82,9 @@ const VideoSchema = new Schema<IVideo>(
     aspectRatio: {
       type: String,
     },
+      cloudName: {
+        type: String,
+      },
     bitRate: {
       type: Number,
     },
@@ -117,6 +121,7 @@ const VideoSchema = new Schema<IVideo>(
         duration: { type: Number, required: true },
         width: { type: Number, required: true },
         height: { type: Number, required: true },
+        cloudName: { type: String },
         aspectRatio: { type: String },
         bitRate: { type: Number },
         frameRate: { type: Number },
