@@ -37,6 +37,11 @@ export default function SignUpPage() {
       return;
     }
 
+    if (!formData.cloudName || !formData.cloudName.trim()) {
+      setError('Cloudinary cloud name is required');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -46,7 +51,7 @@ export default function SignUpPage() {
         password: formData.password,
         cloudinaryApiKey: cloudData.apiKey,
         cloudinaryApiSecret: cloudData.apiSecret,
-        cloudName: formData.cloudName?.trim(),
+        cloudName: formData.cloudName.trim(),
       });
 
       // Redirect to sign in
@@ -119,7 +124,7 @@ export default function SignUpPage() {
 
               {/* Cloudinary API Key */}
               <div>
-                <label className="block text-sm font-medium mb-2">CLOUDINARY_API_KEY (optional)</label>
+                <label className="block text-sm font-medium mb-2">CLOUDINARY_API_KEY</label>
                 <input
                   type="text"
                   value={cloudData.apiKey}
@@ -131,7 +136,7 @@ export default function SignUpPage() {
 
               {/* Cloudinary API Secret */}
               <div>
-                <label className="block text-sm font-medium mb-2">CLOUDINARY_API_SECRET (optional)</label>
+                <label className="block text-sm font-medium mb-2">CLOUDINARY_API_SECRET</label>
                 <input
                   type="password"
                   value={cloudData.apiSecret}
@@ -142,13 +147,14 @@ export default function SignUpPage() {
               </div>
               {/* Cloudinary Cloud Name */}
               <div>
-                <label className="block text-sm font-medium mb-2">Cloudinary Cloud Name (optional)</label>
+                <label className="block text-sm font-medium mb-2">Cloudinary Cloud Name</label>
                 <input
                   type="text"
                   value={formData.cloudName}
                   onChange={(e) => setFormData({ ...formData, cloudName: e.target.value })}
                   className="w-full px-4 py-3 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="your-cloud-name"
+                  required
                 />
               </div>
             </div>

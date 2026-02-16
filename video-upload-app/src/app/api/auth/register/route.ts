@@ -13,6 +13,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!cloudName || !String(cloudName).trim()) {
+      return NextResponse.json(
+        { error: 'Cloudinary cloud name is required' },
+        { status: 400 }
+      );
+    }
+
     if (password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters' },
@@ -33,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     // Create new user
     const userPayload: any = { name, email, password };
-    if (cloudName) userPayload.cloudName = cloudName;
+    userPayload.cloudName = String(cloudName).trim();
     // encrypt any provided Cloudinary keys
     if (cloudinaryApiKey) {
       const { encryptSecret } = await import('@/lib/crypto');
