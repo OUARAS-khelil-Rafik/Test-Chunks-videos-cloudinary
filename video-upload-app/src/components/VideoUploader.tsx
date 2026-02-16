@@ -42,7 +42,7 @@ export function VideoUploader() {
   const [description, setDescription] = useState('');
   const [folders, setFolders] = useState<string[]>([]);
   const [folderMode, setFolderMode] = useState<'existing' | 'new'>('existing');
-  const [selectedFolder, setSelectedFolder] = useState('video-platform');
+  const [selectedFolder, setSelectedFolder] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -87,8 +87,9 @@ export function VideoUploader() {
         const res = await axios.get('/api/videos/folders');
         if (!mounted) return;
         if (res.data?.folders && Array.isArray(res.data.folders)) {
-          setFolders(res.data.folders);
-          if (res.data.folders.length > 0) setSelectedFolder((prev) => prev || res.data.folders[0]);
+          const filtered = res.data.folders.filter((f: string) => f !== 'video-platform');
+          setFolders(filtered);
+          if (filtered.length > 0) setSelectedFolder((prev) => prev || filtered[0]);
         }
       } catch (e) {
         // ignore; folder list is optional
@@ -113,8 +114,6 @@ export function VideoUploader() {
         node = node.children[part];
       }
     };
-    // ensure default root exists
-    addPath('video-platform');
     for (const p of folders) addPath(p);
     return root;
   }, [folders]);
@@ -175,6 +174,10 @@ export function VideoUploader() {
 
     if (folderMode === 'new' && !newFolderName.trim()) {
       setState((prev) => ({ ...prev, error: 'Please provide a folder name' }));
+      return;
+    }
+    if (folderMode === 'existing' && !selectedFolder.trim()) {
+      setState((prev) => ({ ...prev, error: 'Please select a folder' }));
       return;
     }
 
