@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signIn } from 'next-auth/react';
 import { useDropzone } from 'react-dropzone';
@@ -44,6 +44,7 @@ export function VideoUploader() {
   const [folderMode, setFolderMode] = useState<'existing' | 'new'>('existing');
   const [selectedFolder, setSelectedFolder] = useState('video-platform');
   const [newFolderName, setNewFolderName] = useState('');
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
     if (rejectedFiles.length > 0) {
@@ -97,6 +98,61 @@ export function VideoUploader() {
     if (status !== 'loading' && session) fetchFolders();
     return () => { mounted = false; };
   }, [session, status]);
+
+  const folderTree = useMemo(() => {
+    // Build a nested tree from folder paths like a/b/c
+    type Node = { name: string; path: string; children: Record<string, Node> };
+    const root: Node = { name: '', path: '', children: {} };
+    const addPath = (p: string) => {
+      const parts = p.split('/').filter(Boolean);
+      let node = root;
+      let acc = '';
+      for (const part of parts) {
+        acc = acc ? `${acc}/${part}` : part;
+        if (!node.children[part]) node.children[part] = { name: part, path: acc, children: {} };
+        node = node.children[part];
+      }
+    };
+    // ensure default root exists
+    addPath('video-platform');
+    for (const p of folders) addPath(p);
+    return root;
+  }, [folders]);
+
+  const toggleExpand = (path: string) => setExpanded((s) => ({ ...s, [path]: !s[path] }));
+
+  const renderTree = (node: any) => {
+    const childrenKeys = Object.keys(node.children || {});
+    return (
+      <ul className="pl-3">
+        {childrenKeys.map((key) => {
+          const child = node.children[key];
+          const hasChildren = Object.keys(child.children || {}).length > 0;
+          return (
+            <li key={child.path} className="py-1">
+              <div className="flex items-center space-x-2">
+                {hasChildren ? (
+                  <button type="button" onClick={() => toggleExpand(child.path)} className="text-sm text-gray-500">
+                    {expanded[child.path] ? '▾' : '▸'}
+                  </button>
+                ) : (
+                  <span className="w-4" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setSelectedFolder(child.path); setFolderMode('existing'); }}
+                  className={`text-left px-2 py-1 rounded ${selectedFolder === child.path ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
+                >
+                  {child.name}
+                </button>
+              </div>
+              {hasChildren && expanded[child.path] && renderTree(child)}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
 
   const removeFile = () => {
     setState({
@@ -309,28 +365,58 @@ export function VideoUploader() {
                 </div>
 
                 {folderMode === 'existing' && (
-                  <select
-                    value={selectedFolder}
-                    onChange={(e) => setSelectedFolder(e.target.value)}
-                    disabled={state.uploading}
-                    className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="video-platform">video-platform</option>
-                    {folders.map((f) => (
-                      <option key={f} value={f}>{f}</option>
-                    ))}
-                  </select>
+                  <div className="border rounded-lg p-3 bg-white dark:bg-gray-900">
+                    <div className="text-sm text-gray-500 mb-2">Select a folder (click to choose)</div>
+                    <div className="max-h-48 overflow-auto">
+                      {/* render tree starting from root children */}
+                      {renderTree(folderTree)}
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500">Selected: <span className="font-medium">{selectedFolder}</span></div>
+                  </div>
                 )}
 
                 {folderMode === 'new' && (
-                  <input
-                    type="text"
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                    disabled={state.uploading}
-                    placeholder="Enter new folder name"
-                    className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      disabled={state.uploading}
+                      placeholder="Enter new folder name (use / for nested e.g. myroot/sub)"
+                      className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const cleaned = newFolderName.trim().replace(/^\/+|\/+$/g, '').replace(/\s+/g, '-');
+                          if (!cleaned) {
+                            setState((prev) => ({ ...prev, error: 'Please provide a folder name' }));
+                            return;
+                          }
+                          if (!folders.includes(cleaned)) setFolders((f) => [...f, cleaned]);
+                          setSelectedFolder(cleaned);
+                          setFolderMode('existing');
+                          setNewFolderName('');
+                          // auto-expand the created path
+                          const parts = cleaned.split('/').map((_, i, arr) => arr.slice(0, i + 1).join('/'));
+                          const toSet: Record<string, boolean> = {};
+                          parts.forEach((p) => { toSet[p] = true; });
+                          setExpanded((s) => ({ ...s, ...toSet }));
+                        }}
+                        className="px-3 py-2 bg-blue-500 text-white rounded-lg"
+                      >
+                        Create & Select
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewFolderName('')}
+                        className="px-3 py-2 border rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
