@@ -3,6 +3,10 @@ import { getServerSession } from 'next-auth';
 import authOptions from '@/lib/authOptions';
 import { generateSignedUploadParams } from '@/lib/cloudinary';
 
+// This route depends on request headers/cookies for authentication
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     // Check authentication
